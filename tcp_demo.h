@@ -25,7 +25,8 @@ public:
     void sendFileMessage(const QByteArray &content, int type);
     void sendNextChunk();
     void requestDownloadFile(int fileId,QString filename);//请求下载文件
-     void processMessage(ChatMsg* msg, int msgLen);//处理单条消息
+    // void processMessage(ChatMsg* msg, int msgLen);//处理单条消息
+    void processMessage(const QByteArray& msgData);
 signals:
     void qq_connected();
     void qq_disconnected();

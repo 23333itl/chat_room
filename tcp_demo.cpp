@@ -7,6 +7,7 @@
 #include <QRandomGenerator>
 #include<QCoreApplication>
 #include<QDir>
+#include<QThread>
 TcpClient::TcpClient(QObject *parent) : QObject(parent)
 {
     socket = new QTcpSocket(this);
@@ -67,56 +68,71 @@ void TcpClient::connectToServer(const QString &host, quint16 port)
 
 void TcpClient::sendMessage(const QString &message, int type)
 {
-    //将收到的类型和消息转成自己定义的message类型
-    QByteArray content_utf8=message.toUtf8();//QString 转UTF-8编码
-    int len=content_utf8.size();
-    int Total_len=sizeof(ChatMsg)+len;
-    ChatMsg* msg=(ChatMsg*)malloc(Total_len);
-    msg->totalLen=Total_len;
-    msg->type=type;
-    memcpy(msg->content,content_utf8.constData(),len);
-    //发送数据
-    if(socket->state() == QAbstractSocket::ConnectedState) {
-        // if(type==0){
-        //     socket->write((const char*)msg,Total_len);
-        //    // socket->flush();
-        //     //qDebug() << "发送:" << message<<" 总长度:"<<msg->totalLen;
-        //     qDebug() << "发送:" << message;
-        // }
-        // if(type==1){
-        //     socket->write((const char*)msg,Total_len);
-        //     // socket->flush();
-        //     //qDebug() << "发送:" << message<<" 总长度:"<<msg->totalLen;
-        //     qDebug() << "发送:" << message;
-        // }
-        // if(type==2){
-        //    // qDebug()<<"已发送type=2";
-        //     socket->write((const char*)msg,Total_len);
-        // }
-        // if(type==4){
-        //     socket->write((const char*)msg,Total_len);
-        // }
-        // if(type==5){
-        //     socket->write((const char*)msg,Total_len);
-        // }
-        // //type==6时专门走sendFileMessage函数
-        // // if(type==6){
+    QByteArray content_utf8 = message.toUtf8();
+    int len = content_utf8.size();
+    int Total_len = sizeof(ChatMsg) + len;
 
-        // // }
-        // if(type==8){
-        //     socket->write((const char*)msg,Total_len);
-        // }
-        socket->write((const char*)msg,Total_len);
-        // else{
-        // socket->write(message.toUtf8()+"\n");
-        // socket->flush();
-        // qDebug() << "发送:" << message;
-        // }
-    }
-    else {
+    QByteArray packet;
+    packet.reserve(Total_len);
+    packet.append((const char*)&Total_len, 4);  // totalLen
+    packet.append((const char*)&type, 4);          // type
+    packet.append(content_utf8);                   // content
+
+    if (socket->state() == QAbstractSocket::ConnectedState) {
+        socket->write(packet);
+    } else {
         qDebug() << "未连接到服务器";
     }
-    free(msg);
+    // //将收到的类型和消息转成自己定义的message类型
+    // QByteArray content_utf8=message.toUtf8();//QString 转UTF-8编码
+    // int len=content_utf8.size();
+    // int Total_len=sizeof(ChatMsg)+len;
+    // ChatMsg* msg=(ChatMsg*)malloc(Total_len);
+    // msg->totalLen=Total_len;
+    // msg->type=type;
+    // memcpy(msg->content,content_utf8.constData(),len);
+    // //发送数据
+    // if(socket->state() == QAbstractSocket::ConnectedState) {
+    //     // if(type==0){
+    //     //     socket->write((const char*)msg,Total_len);
+    //     //    // socket->flush();
+    //     //     //qDebug() << "发送:" << message<<" 总长度:"<<msg->totalLen;
+    //     //     qDebug() << "发送:" << message;
+    //     // }
+    //     // if(type==1){
+    //     //     socket->write((const char*)msg,Total_len);
+    //     //     // socket->flush();
+    //     //     //qDebug() << "发送:" << message<<" 总长度:"<<msg->totalLen;
+    //     //     qDebug() << "发送:" << message;
+    //     // }
+    //     // if(type==2){
+    //     //    // qDebug()<<"已发送type=2";
+    //     //     socket->write((const char*)msg,Total_len);
+    //     // }
+    //     // if(type==4){
+    //     //     socket->write((const char*)msg,Total_len);
+    //     // }
+    //     // if(type==5){
+    //     //     socket->write((const char*)msg,Total_len);
+    //     // }
+    //     // //type==6时专门走sendFileMessage函数
+    //     // // if(type==6){
+
+    //     // // }
+    //     // if(type==8){
+    //     //     socket->write((const char*)msg,Total_len);
+    //     // }
+    //     socket->write((const char*)msg,Total_len);
+    //     // else{
+    //     // socket->write(message.toUtf8()+"\n");
+    //     // socket->flush();
+    //     // qDebug() << "发送:" << message;
+    //     // }
+    // }
+    // else {
+    //     qDebug() << "未连接到服务器";
+    // }
+    // free(msg);
 }
 
 
@@ -162,22 +178,57 @@ void TcpClient::uploadFile(const QString &filePath)
              << "大小:" << file->size()
              << "块数:" << uploadTotalChunks;
 
-    // 构建上传请求（放在 ChatMsg.content 里）
+    // 构建上传请求（只有 FileChunk 头，无数据）
     int chunkHeaderSize = sizeof(FileChunk);
-    FileChunk *chunk = (FileChunk*)malloc(chunkHeaderSize);
+    QByteArray reqData;
+    reqData.resize(chunkHeaderSize);
+    FileChunk *chunk = (FileChunk*)reqData.data();
     memset(chunk, 0, chunkHeaderSize);
 
     chunk->fileId = uploadFileId;
-    chunk->chunkIndex = 0;  // 请求时填0
-    chunk->chunkSize = 0;   // 请求时填0
+    chunk->chunkIndex = 0;
+    chunk->chunkSize = 0;   // 0 = 控制消息（上传请求）
     chunk->totalChunks = uploadTotalChunks;
     chunk->fileSize = file->size();
-    strncpy(chunk->fileName, info.fileName().toUtf8().constData(), 128);
+    strncpy(chunk->fileName, info.fileName().toUtf8().constData(), 127);
+
+    sendFileMessage(reqData, 6);
+    // QFileInfo info(filePath);
+    // if (!info.exists() || !info.isFile()) {
+    //     emit uploadComplete(false);
+    //     return;
+    // }
+
+    // file = new QFile(filePath, this);
+    // if (!file->open(QIODevice::ReadOnly)) {
+    //     emit uploadComplete(false);
+    //     return;
+    // }
+
+    // uploadFileId = QRandomGenerator::global()->bounded(100000) + 1;
+    // uploadTotalChunks = (file->size() + CHUNK_SIZE - 1) / CHUNK_SIZE;
+    // currentChunk = 0;
+
+    // qDebug() << "准备上传:" << info.fileName()
+    //          << "大小:" << file->size()
+    //          << "块数:" << uploadTotalChunks;
+
+    // // 构建上传请求（放在 ChatMsg.content 里）
+    // int chunkHeaderSize = sizeof(FileChunk);
+    // FileChunk *chunk = (FileChunk*)malloc(chunkHeaderSize);
+    // memset(chunk, 0, chunkHeaderSize);
+
+    // chunk->fileId = uploadFileId;
+    // chunk->chunkIndex = 0;  // 请求时填0
+    // chunk->chunkSize = 0;   // 请求时填0
+    // chunk->totalChunks = uploadTotalChunks;
+    // chunk->fileSize = file->size();
+    // strncpy(chunk->fileName, info.fileName().toUtf8().constData(), 128);
 
 
-    sendFileMessage(QByteArray((char*)chunk, chunkHeaderSize), 6);
+    // sendFileMessage(QByteArray((char*)chunk, chunkHeaderSize), 6);
 
-    free(chunk);
+    // free(chunk);
 }
 
 
@@ -357,32 +408,72 @@ void TcpClient::onDisconnected()
 
 void TcpClient::onReadyRead()
 {
-    // 累积所有可读数据到缓冲区
+    // 读取所有可用数据到缓冲区
     recvBuffer.append(socket->readAll());
 
     // 循环解析完整消息
-    while (recvBuffer.size() >= 4) {
-        int total_len = *(int*)recvBuffer.data();
+    while (true) {
+        // 至少需要4字节才能读出 totalLen
+        if (recvBuffer.size() < 4) break;
 
-        // 校验长度合法性
-        if (total_len < 8 || total_len > 10 * 1024 * 1024) {
-            qDebug() << "非法消息长度:" << total_len << "丢弃缓冲区";
-            recvBuffer.clear();
-            return;
+        int totalLen = *(int*)recvBuffer.constData();
+
+        // 校验长度
+        if (totalLen < 8 || totalLen > 10 * 1024 * 1024) {
+            qDebug() << "非法消息长度:" << totalLen << "缓冲区大小:" << recvBuffer.size();
+            // 尝试恢复：查找下一个可能的合法头（以8开头的4字节）
+            bool found = false;
+            for (int i = 1; i < recvBuffer.size() - 3 && i < 1024; i++) {
+                int tryLen = *(int*)(recvBuffer.constData() + i);
+                if (tryLen >= 8 && tryLen <= 10 * 1024 * 1024) {
+                    qDebug() << "尝试恢复，丢弃前" << i << "字节";
+                    recvBuffer.remove(0, i);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                recvBuffer.clear();
+            }
+            continue;
         }
 
-        // 检查是否收到完整消息（半包：等下次 readyRead）
-        if (recvBuffer.size() < total_len) {
-            break;
-        }
+        // 检查是否收到完整消息
+        if (recvBuffer.size() < totalLen) break;  // 半包，等下次
 
-        // 提取完整消息处理
-        ChatMsg* msg = (ChatMsg*)recvBuffer.data();
-        processMessage(msg, total_len);
+        // 提取完整消息（拷贝一份，避免后续修改影响）
+        QByteArray msgData = recvBuffer.left(totalLen);
+        recvBuffer.remove(0, totalLen);
 
-        // 移除已处理的消息
-        recvBuffer.remove(0, total_len);
+        // 处理消息
+        processMessage(msgData);
     }
+    // // 累积所有可读数据到缓冲区
+    // recvBuffer.append(socket->readAll());
+
+    // // 循环解析完整消息
+    // while (recvBuffer.size() >= 4) {
+    //     int total_len = *(int*)recvBuffer.data();
+
+    //     // 校验长度合法性
+    //     if (total_len < 8 || total_len > 10 * 1024 * 1024) {
+    //         qDebug() << "非法消息长度:" << total_len << "丢弃缓冲区";
+    //         recvBuffer.clear();
+    //         return;
+    //     }
+
+    //     // 检查是否收到完整消息（半包：等下次 readyRead）
+    //     if (recvBuffer.size() < total_len) {
+    //         break;
+    //     }
+
+    //     // 提取完整消息处理
+    //     ChatMsg* msg = (ChatMsg*)recvBuffer.data();
+    //     processMessage(msg, total_len);
+
+    //     // 移除已处理的消息
+    //     recvBuffer.remove(0, total_len);
+    // }
 }
 
 
@@ -397,33 +488,73 @@ void TcpClient::sendNextChunk()
     if (!file || currentChunk >= uploadTotalChunks) return;
 
     qint64 offset = (qint64)currentChunk * CHUNK_SIZE;
-    file->seek(offset);
+    if (!file->seek(offset)) {
+        qDebug() << "seek 失败!";
+        return;
+    }
 
     QByteArray fileData = file->read(CHUNK_SIZE);
     int chunkLen = fileData.size();
+    if (chunkLen <= 0) {
+        qDebug() << "读取文件失败!";
+        return;
+    }
 
     // 构建 FileChunk + 数据
     int totalContentLen = sizeof(FileChunk) + chunkLen;
-    FileChunk *chunk = (FileChunk*)malloc(totalContentLen);
+    QByteArray chunkData;
+    chunkData.resize(totalContentLen);
+    FileChunk *chunk = (FileChunk*)chunkData.data();
     memset(chunk, 0, totalContentLen);
 
     chunk->fileId = uploadFileId;
     chunk->chunkIndex = currentChunk;
-    chunk->chunkSize = chunkLen;
+    chunk->chunkSize = chunkLen;   // >0 = 数据消息
     chunk->totalChunks = uploadTotalChunks;
     chunk->fileSize = file->size();
-    // fileName
+    // 数据块不放状态字符串，fileName 可以留空或放文件名
     memcpy(chunk->data, fileData.constData(), chunkLen);
-
-    // 用 sendFileMessage 发送（type=6）
-    sendFileMessage(QByteArray((char*)chunk, totalContentLen), 6);
-
-    free(chunk);
+    //限制发送速度，防止服务器读取文件错误
+    if (currentChunk < uploadTotalChunks - 1) {
+        QThread::msleep(5);
+    }
+    sendFileMessage(chunkData, 6);
+    currentChunk++;
 
     int percent = (currentChunk + 1) * 100 / uploadTotalChunks;
     emit uploadProgress(percent);
 
-    qDebug() << "发送块" << currentChunk << "/" << uploadTotalChunks;
+    qDebug() << "发送块" << currentChunk << "/" << uploadTotalChunks << "大小:" << chunkLen;
+    // if (!file || currentChunk >= uploadTotalChunks) return;
+
+    // qint64 offset = (qint64)currentChunk * CHUNK_SIZE;
+    // file->seek(offset);
+
+    // QByteArray fileData = file->read(CHUNK_SIZE);
+    // int chunkLen = fileData.size();
+
+    // // 构建 FileChunk + 数据
+    // int totalContentLen = sizeof(FileChunk) + chunkLen;
+    // FileChunk *chunk = (FileChunk*)malloc(totalContentLen);
+    // memset(chunk, 0, totalContentLen);
+
+    // chunk->fileId = uploadFileId;
+    // chunk->chunkIndex = currentChunk;
+    // chunk->chunkSize = chunkLen;
+    // chunk->totalChunks = uploadTotalChunks;
+    // chunk->fileSize = file->size();
+    // // fileName
+    // memcpy(chunk->data, fileData.constData(), chunkLen);
+
+    // // 用 sendFileMessage 发送（type=6）
+    // sendFileMessage(QByteArray((char*)chunk, totalContentLen), 6);
+
+    // free(chunk);
+
+    // int percent = (currentChunk + 1) * 100 / uploadTotalChunks;
+    // emit uploadProgress(percent);
+
+    // qDebug() << "发送块" << currentChunk << "/" << uploadTotalChunks;
 }
 
 void TcpClient::requestDownloadFile(int fileId,QString filename)
@@ -446,143 +577,317 @@ void TcpClient::requestDownloadFile(int fileId,QString filename)
     free(msg);
 }
 
-void TcpClient::processMessage(ChatMsg *message, int msgLen)
+// void TcpClient::processMessage(ChatMsg *message, int msgLen)
+// {
+//     switch (message->type) {
+//     case 0: {  // 测试消息
+//         int contentLen = msgLen - sizeof(ChatMsg);
+//         QString text = QString::fromUtf8(message->content, contentLen);
+//         qDebug() << "收到测试消息:" << text;
+//         break;
+//     }
+
+//     case 1: {  // 用户列表
+//         int contentLen = msgLen - sizeof(ChatMsg);
+//         QString userListStr = QString::fromUtf8(message->content, contentLen);
+//         QStringList users = userListStr.split("\n", Qt::SkipEmptyParts);
+//         emit qq_userlist(users);
+//         break;
+//     }
+
+//     case 2: {  // 聊天消息
+//         int contentLen = msgLen - sizeof(ChatMsg);
+//         QString msgText = QString::fromUtf8(message->content, contentLen);
+//         emit qq_recvmsg(msgText);
+//         break;
+//     }
+
+//     case 6: {  // 文件传输
+//         FileChunk *fheader = (FileChunk*)(message->content);
+//         int contentLen = msgLen - sizeof(ChatMsg);
+
+//         // 安全读取 fileName（强制截断到128字节，避免越界）
+//         char safeName[129] = {0};
+//         memcpy(safeName, fheader->fileName, 128);
+//         QString status = QString::fromUtf8(safeName);
+
+//         qDebug() << "文件传输响应状态：" << status
+//                  << "chunkIndex:" << fheader->chunkIndex
+//                  << "chunkSize:" << fheader->chunkSize;
+
+//         // 用 chunkSize 区分控制消息/数据消息，不再只依赖字符串比较
+//         bool isControlMsg = (fheader->chunkSize == 0);
+
+//         if (isControlMsg && status == "PUSH_FILE") {
+//             // 服务器推送文件，开始下载
+//             qDebug() << "开始接收文件:" << downloadFileName;
+
+//             QString saveDir = QCoreApplication::applicationDirPath() + "/downloads/";
+//             QDir().mkpath(saveDir);
+//             QString savePath = saveDir + downloadFileName;
+
+//             downloadFile = new QFile(savePath, this);
+//             if (downloadFile->open(QIODevice::WriteOnly)) {
+//                 downloadFileId = fheader->fileId;
+//                 downloadTotalChunks = fheader->totalChunks;
+//                 downloadCurrentChunk = 0;
+
+//                 qDebug() << "开始下载:" << savePath
+//                          << "大小:" << fheader->fileSize
+//                          << "块数:" << downloadTotalChunks;
+//             } else {
+//                 qDebug() << "创建文件失败:" << savePath;
+//                 emit downloadComplete(false, "");
+//             }
+//         }
+//         else if (isControlMsg && status == "ACK") {
+//             if (file && uploadTotalChunks > 0) {
+//                 qDebug() << "服务器允许上传，开始发送数据";
+//                 sendNextChunk();
+//             }
+//         }
+//         else if (isControlMsg && status == "ERROR") {
+//             if (file) {
+//                 file->close();
+//                 file->deleteLater();
+//                 file = nullptr;
+//                 emit uploadComplete(false);
+//             }
+//             if (downloadFile) {
+//                 downloadFile->close();
+//                 downloadFile->deleteLater();
+//                 downloadFile = nullptr;
+//                 emit downloadComplete(false, "");
+//             }
+//         }
+//         else if (isControlMsg && status == "COMPLETE") {
+//             if (file) {
+//                 qDebug() << "上传完成";
+//                 file->close();
+//                 file->deleteLater();
+//                 file = nullptr;
+//                 uploadTotalChunks = 0;
+//                 emit uploadComplete(true);
+//             }
+//             if (downloadFile) {
+//                 qDebug() << "下载完成:" << downloadFileName;
+//                 QString filePath = downloadFile->fileName();
+//                 downloadFile->close();
+//                 downloadFile->deleteLater();
+//                 downloadFile = nullptr;
+//                 downloadFileName.clear();  // 清空，避免下次复用
+//                 emit downloadComplete(true, filePath);
+//             }
+//         }
+//         else {
+//             // 文件数据块（chunkSize > 0）
+//             if (downloadFile && fheader->fileId == downloadFileId) {
+//                 // 校验块顺序
+//                 if (fheader->chunkIndex != downloadCurrentChunk) {
+//                     qDebug() << "警告：块顺序错误! 期望:" << downloadCurrentChunk
+//                              << "实际:" << fheader->chunkIndex;
+//                     // 可以选择 seek 到正确位置，或断开连接
+//                     // downloadFile->seek((qint64)fheader->chunkIndex * CHUNK_SIZE);
+//                 }
+
+//                 downloadFile->write(fheader->data, fheader->chunkSize);
+//                 downloadCurrentChunk++;
+
+//                 int percent = downloadCurrentChunk * 100 / downloadTotalChunks;
+//                 emit downloadProgress(percent);
+
+//                 qDebug() << "接收下载块" << fheader->chunkIndex
+//                          << "/" << downloadTotalChunks
+//                          << "进度:" << percent << "%";
+//             }
+//             else if (file && uploadTotalChunks > 0) {
+//                 // 上传进度确认（服务器的 ACK 带 chunkIndex）
+//                 currentChunk = fheader->chunkIndex + 1;
+//                 if (currentChunk < uploadTotalChunks) {
+//                     sendNextChunk();
+//                 }
+//             }
+//         }
+//         break;
+//     }
+
+//     case 9: {  // 文件列表
+//         int contentLen = msgLen - sizeof(ChatMsg);
+//         QString fileListStr = QString::fromUtf8(message->content, contentLen);
+//         if (fileListStr == "暂无可用文件") {
+//             emit fileListReceived(QStringList());
+//         } else {
+//             QStringList files = fileListStr.split("\n", Qt::SkipEmptyParts);
+//             emit fileListReceived(files);
+//         }
+//         break;
+//     }
+
+//     default:
+//         qDebug() << "未知消息类型:" << message->type;
+//         break;
+//     }
+//}
+
+void TcpClient::processMessage(const QByteArray& msgData)
 {
-    switch (message->type) {
-    case 0: {  // 测试消息
+    const ChatMsg* msg = (const ChatMsg*)msgData.constData();
+    int msgLen = msgData.size();
+
+    switch (msg->type) {
+    case 0: {
         int contentLen = msgLen - sizeof(ChatMsg);
-        QString text = QString::fromUtf8(message->content, contentLen);
+        QString text = QString::fromUtf8(msg->content, contentLen);
         qDebug() << "收到测试消息:" << text;
         break;
     }
 
-    case 1: {  // 用户列表
+    case 1: {
         int contentLen = msgLen - sizeof(ChatMsg);
-        QString userListStr = QString::fromUtf8(message->content, contentLen);
+        QString userListStr = QString::fromUtf8(msg->content, contentLen);
         QStringList users = userListStr.split("\n", Qt::SkipEmptyParts);
         emit qq_userlist(users);
         break;
     }
 
-    case 2: {  // 聊天消息
+    case 2: {
         int contentLen = msgLen - sizeof(ChatMsg);
-        QString msgText = QString::fromUtf8(message->content, contentLen);
+        QString msgText = QString::fromUtf8(msg->content, contentLen);
         emit qq_recvmsg(msgText);
         break;
     }
 
-    case 6: {  // 文件传输
-        FileChunk *fheader = (FileChunk*)(message->content);
+    case 6: {
+        // 安全获取 FileChunk
         int contentLen = msgLen - sizeof(ChatMsg);
+        if (contentLen < (int)sizeof(FileChunk)) {
+            qDebug() << "FileChunk 内容太短:" << contentLen;
+            return;
+        }
 
-        // 安全读取 fileName（强制截断到128字节，避免越界）
+        const FileChunk *fc = (const FileChunk*)msg->content;
+
+        // 安全复制 fileName（128字节，强制截断）
         char safeName[129] = {0};
-        memcpy(safeName, fheader->fileName, 128);
-        QString status = QString::fromUtf8(safeName);
+        memcpy(safeName, fc->fileName, 128);
+        QString status = QString::fromLatin1(safeName);  // 状态字符串用 Latin1，避免 UTF-8 解析问题
 
-        qDebug() << "文件传输响应状态：" << status
-                 << "chunkIndex:" << fheader->chunkIndex
-                 << "chunkSize:" << fheader->chunkSize;
+        // qDebug() << "type=6 fileId=" << fc->fileId
+        //          << "chunkIndex=" << fc->chunkIndex
+        //          << "chunkSize=" << fc->chunkSize
+        //          << "status=" << status;
+        qDebug() << "type=6 chunkSize=" << fc->chunkSize
+                 << "downloadCurrent=" << downloadCurrentChunk;
 
-        // 用 chunkSize 区分控制消息/数据消息，不再只依赖字符串比较
-        bool isControlMsg = (fheader->chunkSize == 0);
+        // 严格区分：chunkSize == 0 是控制消息，>0 是数据消息
+        if (fc->chunkSize == 0) {
+            // ========== 控制消息 ==========
+            if (status == "PUSH_FILE") {
+                // 服务器推送文件，开始下载
+                qDebug() << "开始接收文件:" << downloadFileName;
 
-        if (isControlMsg && status == "PUSH_FILE") {
-            // 服务器推送文件，开始下载
-            qDebug() << "开始接收文件:" << downloadFileName;
+                QString saveDir = QCoreApplication::applicationDirPath() + "/downloads/";
+                QDir().mkpath(saveDir);
+                QString savePath = saveDir + downloadFileName;
 
-            QString saveDir = QCoreApplication::applicationDirPath() + "/downloads/";
-            QDir().mkpath(saveDir);
-            QString savePath = saveDir + downloadFileName;
-
-            downloadFile = new QFile(savePath, this);
-            if (downloadFile->open(QIODevice::WriteOnly)) {
-                downloadFileId = fheader->fileId;
-                downloadTotalChunks = fheader->totalChunks;
-                downloadCurrentChunk = 0;
-
-                qDebug() << "开始下载:" << savePath
-                         << "大小:" << fheader->fileSize
-                         << "块数:" << downloadTotalChunks;
-            } else {
-                qDebug() << "创建文件失败:" << savePath;
-                emit downloadComplete(false, "");
-            }
-        }
-        else if (isControlMsg && status == "ACK") {
-            if (file && uploadTotalChunks > 0) {
-                qDebug() << "服务器允许上传，开始发送数据";
-                sendNextChunk();
-            }
-        }
-        else if (isControlMsg && status == "ERROR") {
-            if (file) {
-                file->close();
-                file->deleteLater();
-                file = nullptr;
-                emit uploadComplete(false);
-            }
-            if (downloadFile) {
-                downloadFile->close();
-                downloadFile->deleteLater();
-                downloadFile = nullptr;
-                emit downloadComplete(false, "");
-            }
-        }
-        else if (isControlMsg && status == "COMPLETE") {
-            if (file) {
-                qDebug() << "上传完成";
-                file->close();
-                file->deleteLater();
-                file = nullptr;
-                uploadTotalChunks = 0;
-                emit uploadComplete(true);
-            }
-            if (downloadFile) {
-                qDebug() << "下载完成:" << downloadFileName;
-                QString filePath = downloadFile->fileName();
-                downloadFile->close();
-                downloadFile->deleteLater();
-                downloadFile = nullptr;
-                downloadFileName.clear();  // 清空，避免下次复用
-                emit downloadComplete(true, filePath);
-            }
-        }
-        else {
-            // 文件数据块（chunkSize > 0）
-            if (downloadFile && fheader->fileId == downloadFileId) {
-                // 校验块顺序
-                if (fheader->chunkIndex != downloadCurrentChunk) {
-                    qDebug() << "警告：块顺序错误! 期望:" << downloadCurrentChunk
-                             << "实际:" << fheader->chunkIndex;
-                    // 可以选择 seek 到正确位置，或断开连接
-                    // downloadFile->seek((qint64)fheader->chunkIndex * CHUNK_SIZE);
+                // 如果文件已存在，先关闭
+                if (downloadFile) {
+                    downloadFile->close();
+                    delete downloadFile;
                 }
 
-                downloadFile->write(fheader->data, fheader->chunkSize);
+                downloadFile = new QFile(savePath, this);
+                if (downloadFile->open(QIODevice::WriteOnly)) {
+                    downloadFileId = fc->fileId;
+                    downloadTotalChunks = fc->totalChunks;
+                    downloadCurrentChunk = 0;
+
+                    qDebug() << "开始下载:" << savePath
+                             << "大小:" << fc->fileSize
+                             << "块数:" << downloadTotalChunks;
+                } else {
+                    qDebug() << "创建文件失败:" << savePath;
+                    emit downloadComplete(false, "");
+                }
+            }
+            else if (status == "ACK") {
+                // 上传确认，发送下一块
+                if (file && uploadTotalChunks > 0) {
+                    qDebug() << "收到 ACK，当前进度:" << currentChunk << "/" << uploadTotalChunks;
+                    sendNextChunk();
+                }
+            }
+            else if (status == "ERROR") {
+                qDebug() << "收到 ERROR";
+                if (file) {
+                    file->close();
+                    file->deleteLater();
+                    file = nullptr;
+                    emit uploadComplete(false);
+                }
+                if (downloadFile) {
+                    downloadFile->close();
+                    downloadFile->deleteLater();
+                    downloadFile = nullptr;
+                    emit downloadComplete(false, "");
+                }
+            }
+            else if (status == "COMPLETE") {
+                qDebug() << "收到 COMPLETE";
+                if (file) {
+                    // 上传完成
+                    file->close();
+                    file->deleteLater();
+                    file = nullptr;
+                    uploadTotalChunks = 0;
+                    emit uploadComplete(true);
+                }
+                if (downloadFile) {
+                    // 下载完成
+                    QString filePath = downloadFile->fileName();
+                    downloadFile->close();
+                    downloadFile->deleteLater();
+                    downloadFile = nullptr;
+                    downloadFileName.clear();
+                    emit downloadComplete(true, filePath);
+                }
+            }
+            else {
+                qDebug() << "未知控制消息状态:" << status;
+            }
+        } else {
+            // ========== 数据消息（chunkSize > 0）==========
+            // 必须是下载数据块
+            if (downloadFile && fc->fileId == downloadFileId) {
+                // 校验顺序
+                if (fc->chunkIndex != downloadCurrentChunk) {
+                    qDebug() << "警告：块顺序错误! 期望:" << downloadCurrentChunk
+                             << "实际:" << fc->chunkIndex;
+                }
+
+                // 写入数据
+                qint64 written = downloadFile->write(fc->data, fc->chunkSize);
+                if (written != fc->chunkSize) {
+                    qDebug() << "写入失败! 期望:" << fc->chunkSize << "实际:" << written;
+                }
+
                 downloadCurrentChunk++;
 
                 int percent = downloadCurrentChunk * 100 / downloadTotalChunks;
                 emit downloadProgress(percent);
 
-                qDebug() << "接收下载块" << fheader->chunkIndex
-                         << "/" << downloadTotalChunks
+                qDebug() << "接收块" << fc->chunkIndex << "/" << downloadTotalChunks
                          << "进度:" << percent << "%";
-            }
-            else if (file && uploadTotalChunks > 0) {
-                // 上传进度确认（服务器的 ACK 带 chunkIndex）
-                currentChunk = fheader->chunkIndex + 1;
-                if (currentChunk < uploadTotalChunks) {
-                    sendNextChunk();
-                }
+            } else {
+                qDebug() << "忽略未知数据块 fileId=" << fc->fileId;
             }
         }
         break;
     }
 
-    case 9: {  // 文件列表
+    case 9: {
         int contentLen = msgLen - sizeof(ChatMsg);
-        QString fileListStr = QString::fromUtf8(message->content, contentLen);
+        QString fileListStr = QString::fromUtf8(msg->content, contentLen);
         if (fileListStr == "暂无可用文件") {
             emit fileListReceived(QStringList());
         } else {
@@ -593,28 +898,42 @@ void TcpClient::processMessage(ChatMsg *message, int msgLen)
     }
 
     default:
-        qDebug() << "未知消息类型:" << message->type;
+        qDebug() << "未知消息类型:" << msg->type;
         break;
     }
 }
 
 void TcpClient::sendFileMessage(const QByteArray &content, int type)
 {
-    //qDebug()<<"发送头部";
     int contentLen = content.size();
     int totalLen = sizeof(ChatMsg) + contentLen;
 
-    ChatMsg *msg = (ChatMsg*)malloc(totalLen);
-    msg->totalLen = totalLen;
-    msg->type = type;
-    memcpy(msg->content, content.constData(), contentLen);
-   // msg->content[contentLen] = '\0';
+    QByteArray packet;
+    packet.reserve(totalLen);
+    packet.append((const char*)&totalLen, 4);
+    packet.append((const char*)&type, 4);
+    packet.append(content);
 
     if (socket->state() == QAbstractSocket::ConnectedState) {
-        socket->write((const char*)msg, totalLen);
-        //qDebug()<<"发送头部成功";
+        qint64 written = socket->write(packet);
+        qDebug() << "发送消息 type=" << type << "totalLen=" << totalLen
+                 << "written=" << written;
     }
+   //  //qDebug()<<"发送头部";
+   //  int contentLen = content.size();
+   //  int totalLen = sizeof(ChatMsg) + contentLen;
 
-    free(msg);
+   //  ChatMsg *msg = (ChatMsg*)malloc(totalLen);
+   //  msg->totalLen = totalLen;
+   //  msg->type = type;
+   //  memcpy(msg->content, content.constData(), contentLen);
+   // // msg->content[contentLen] = '\0';
+
+   //  if (socket->state() == QAbstractSocket::ConnectedState) {
+   //      socket->write((const char*)msg, totalLen);
+   //      //qDebug()<<"发送头部成功";
+   //  }
+
+   //  free(msg);
 }
 

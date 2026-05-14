@@ -8,14 +8,16 @@
 // #define FILE_COMPLETE   14
 // #define FILE_ERROR      15
 
+// 控制消息：chunkSize == 0，fileName 放状态字符串
+// 数据消息：chunkSize > 0，fileName 放真实文件名
 struct FileChunk {
-    int fileId;
-    int chunkIndex;
-    int chunkSize;
-    int totalChunks;
-    long long fileSize;
-    char fileName[128];
-    char data[0];  // 文件内容
+    int fileId;          // 文件ID
+    int chunkIndex;      // 块序号（控制消息时无意义）
+    int chunkSize;       // 数据大小（0=控制消息，>0=数据）
+    int totalChunks;     // 总块数
+    long long fileSize;  // 文件总大小
+    char fileName[128];  // 控制消息时放状态，数据消息时放文件名
+    char data[0];        // 柔性数组，实际数据
 };
 
 // 消息结构体

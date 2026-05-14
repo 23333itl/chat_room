@@ -483,6 +483,7 @@ debug/moc_chat_login.cpp: ../../chat_login.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QFile \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfile.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfiledevice.h \
+		D:/qtn/6.5.3/mingw_64/include/QtCore/QByteArray \
 		../../protocol.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QTimer \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qtimer.h \
@@ -688,6 +689,7 @@ debug/moc_chat_room.cpp: ../../chat_room.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QFile \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfile.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfiledevice.h \
+		D:/qtn/6.5.3/mingw_64/include/QtCore/QByteArray \
 		../../protocol.h \
 		debug/moc_predefs.h \
 		D:/qtn/6.5.3/mingw_64/bin/moc.exe
@@ -811,6 +813,7 @@ debug/moc_tcp_demo.cpp: ../../tcp_demo.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QFile \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfile.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfiledevice.h \
+		D:/qtn/6.5.3/mingw_64/include/QtCore/QByteArray \
 		../../protocol.h \
 		debug/moc_predefs.h \
 		D:/qtn/6.5.3/mingw_64/bin/moc.exe
@@ -1184,6 +1187,7 @@ debug/chat_login.o: ../../chat_login.cpp ../../chat_login.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QFile \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfile.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfiledevice.h \
+		D:/qtn/6.5.3/mingw_64/include/QtCore/QByteArray \
 		../../protocol.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QTimer \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qtimer.h \
@@ -1397,6 +1401,7 @@ debug/chat_room.o: ../../chat_room.cpp ../../chat_room.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QFile \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfile.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfiledevice.h \
+		D:/qtn/6.5.3/mingw_64/include/QtCore/QByteArray \
 		../../protocol.h \
 		ui_chat_room.h \
 		D:/qtn/6.5.3/mingw_64/include/QtWidgets/QHBoxLayout \
@@ -1607,6 +1612,7 @@ debug/main.o: ../../main.cpp ../../chat_login.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QFile \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfile.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfiledevice.h \
+		D:/qtn/6.5.3/mingw_64/include/QtCore/QByteArray \
 		../../protocol.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QTimer \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qtimer.h \
@@ -1780,6 +1786,7 @@ debug/tcp_demo.o: ../../tcp_demo.cpp ../../tcp_demo.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QFile \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfile.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qfiledevice.h \
+		D:/qtn/6.5.3/mingw_64/include/QtCore/QByteArray \
 		../../protocol.h \
 		../../chat_room.h \
 		D:/qtn/6.5.3/mingw_64/include/QtWidgets/QWidget \
@@ -1887,7 +1894,8 @@ debug/tcp_demo.o: ../../tcp_demo.cpp ../../tcp_demo.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qexception.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/qpromise.h \
 		D:/qtn/6.5.3/mingw_64/include/QtCore/QDir \
-		D:/qtn/6.5.3/mingw_64/include/QtCore/qdir.h
+		D:/qtn/6.5.3/mingw_64/include/QtCore/qdir.h \
+		D:/qtn/6.5.3/mingw_64/include/QtCore/QThread
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o debug\tcp_demo.o ..\..\tcp_demo.cpp
 
 debug/qrc_iamges.o: debug/qrc_iamges.cpp 
