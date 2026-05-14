@@ -5,6 +5,7 @@
 #include <QTcpSocket>
 #include <QDebug>
 #include <QFile>
+#include <QByteArray>
 
 #pragma pack(push, 1)
 #include "protocol.h"
@@ -24,6 +25,7 @@ public:
     void sendFileMessage(const QByteArray &content, int type);
     void sendNextChunk();
     void requestDownloadFile(int fileId,QString filename);//请求下载文件
+     void processMessage(ChatMsg* msg, int msgLen);//处理单条消息
 signals:
     void qq_connected();
     void qq_disconnected();
@@ -60,7 +62,11 @@ private:
     int downloadTotalChunks = 0;
     int downloadCurrentChunk = 0;
     QString downloadFileName;
+    QByteArray recvBuffer;//接收缓冲区
+
 
 };
+
+
 
 #endif

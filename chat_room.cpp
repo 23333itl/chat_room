@@ -243,6 +243,8 @@ void chat_room::updateUserList(QStringList users)
 void chat_room::updateFileList(QStringList files)
 {
     ui->listWidget_doc->clear();
+    currentFiles.clear();
+    qDebug()<<"收到文件列表:"<<files;
     //files:文件ID|文件名|文件大小(字节)
     for (const QString& file :files) {
         QStringList parts = file.split("|");

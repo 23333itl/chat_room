@@ -65,7 +65,7 @@ void chat_login::set_stainfo(QString message)
 
 QString chat_login::getname()
 {
-    qDebug()<<"用户名:"<<ui->edt_name->text();
+    //qDebug()<<"用户名:"<<ui->edt_name->text();
     return ui->edt_name->text();
 }
 

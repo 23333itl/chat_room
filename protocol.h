@@ -32,6 +32,15 @@ struct FileNotify {
     long long fileSize;      // 文件大小
     char fileName[128];      // 文件名
 };
+
+//文件传输状态枚举，避免字符串比较
+enum FileStatus {
+    FILE_DATA = 0,      // 普通数据块
+    FILE_PUSH = 1,      // 服务器推送文件头
+    FILE_ACK = 2,       // 确认/进度回复
+    FILE_COMPLETE = 3,  // 传输完成
+    FILE_ERROR = 4      // 错误
+};
 // enum class MsgType : int
 // {
 //
