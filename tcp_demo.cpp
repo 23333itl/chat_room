@@ -514,17 +514,17 @@ void TcpClient::sendNextChunk()
     chunk->fileSize = file->size();
     // 数据块不放状态字符串，fileName 可以留空或放文件名
     memcpy(chunk->data, fileData.constData(), chunkLen);
-    //限制发送速度，防止服务器读取文件错误
-    if (currentChunk < uploadTotalChunks - 1) {
-        QThread::msleep(5);
-    }
+    // //限制发送速度，防止服务器读取文件错误
+    // if (currentChunk < uploadTotalChunks - 1) {
+    //     QThread::msleep(1);
+    // }
     sendFileMessage(chunkData, 6);
     currentChunk++;
 
     int percent = (currentChunk + 1) * 100 / uploadTotalChunks;
     emit uploadProgress(percent);
 
-    qDebug() << "发送块" << currentChunk << "/" << uploadTotalChunks << "大小:" << chunkLen;
+    //qDebug() << "发送块" << currentChunk << "/" << uploadTotalChunks << "大小:" << chunkLen;
     // if (!file || currentChunk >= uploadTotalChunks) return;
 
     // qint64 offset = (qint64)currentChunk * CHUNK_SIZE;
@@ -776,8 +776,8 @@ void TcpClient::processMessage(const QByteArray& msgData)
         //          << "chunkIndex=" << fc->chunkIndex
         //          << "chunkSize=" << fc->chunkSize
         //          << "status=" << status;
-        qDebug() << "type=6 chunkSize=" << fc->chunkSize
-                 << "downloadCurrent=" << downloadCurrentChunk;
+        // qDebug() << "type=6 chunkSize=" << fc->chunkSize
+        //          << "downloadCurrent=" << downloadCurrentChunk;
 
         // 严格区分：chunkSize == 0 是控制消息，>0 是数据消息
         if (fc->chunkSize == 0) {
@@ -813,7 +813,7 @@ void TcpClient::processMessage(const QByteArray& msgData)
             else if (status == "ACK") {
                 // 上传确认，发送下一块
                 if (file && uploadTotalChunks > 0) {
-                    qDebug() << "收到 ACK，当前进度:" << currentChunk << "/" << uploadTotalChunks;
+                    //qDebug() << "收到 ACK，当前进度:" << currentChunk << "/" << uploadTotalChunks;
                     sendNextChunk();
                 }
             }
@@ -916,8 +916,8 @@ void TcpClient::sendFileMessage(const QByteArray &content, int type)
 
     if (socket->state() == QAbstractSocket::ConnectedState) {
         qint64 written = socket->write(packet);
-        qDebug() << "发送消息 type=" << type << "totalLen=" << totalLen
-                 << "written=" << written;
+        // qDebug() << "发送消息 type=" << type << "totalLen=" << totalLen
+        //          << "written=" << written;
     }
    //  //qDebug()<<"发送头部";
    //  int contentLen = content.size();
